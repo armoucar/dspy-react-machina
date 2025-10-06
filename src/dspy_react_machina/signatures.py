@@ -234,8 +234,12 @@ def _build_input_fields_for_state(state: str, signature: type[Signature]) -> dic
 
     # State-specific input fields
     if state == MachineStates.USER_QUERY:
-        # User query state uses original signature inputs
+        # User query state uses original signature inputs (excluding history field)
         for name, field in signature.input_fields.items():
+            if hasattr(field, "annotation") and field.annotation == dspy.History:
+                continue
+            if name == Fields.HISTORY:
+                continue
             input_fields[name] = (field.annotation, dspy.InputField(desc=_get_field_description(field, name)))
     elif state == MachineStates.INTERRUPTED:
         # Interrupted state uses both tool_result and interruption_instructions as inputs
@@ -254,7 +258,8 @@ def _build_input_fields_for_state(state: str, signature: type[Signature]) -> dic
             dspy.InputField(desc="Tool execution observation or result"),
         )
 
-    # All states have history
+    # All states have history - always use internal field name "history"
+    # This ensures consistency in state signatures regardless of user's field name
     input_fields[Fields.HISTORY] = (
         dspy.History,
         dspy.InputField(desc="Full conversation and tool interaction history"),

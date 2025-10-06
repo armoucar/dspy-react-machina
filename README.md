@@ -24,11 +24,21 @@ def get_weather(city: str) -> str:
     return f"Weather in {city}: 72°F, sunny"
 
 # Create agent
-agent = ReActMachina(tools=[get_weather])
+agent = ReActMachina("history: dspy.History, question -> answer", tools=[get_weather])
 
-# Chat with the agent
-result = agent("What's the weather in Paris?")
-print(result.answer)
+# Chat with persistent history
+history = dspy.History(messages=[])
+
+while True:
+    user_input = input("You: ").strip()
+    if user_input.lower() in ["quit", "exit"]:
+        break
+
+    response = agent(question=user_input, history=history)
+    print(f"Agent: {response.answer}\n")
+
+    # Update history for next turn
+    history = response.history
 ```
 
 ## Documentation

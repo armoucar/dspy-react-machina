@@ -116,6 +116,9 @@ class ReActMachina(dspy.Module):
         self.signature = ensure_signature(signature)
         self.max_steps = max_steps
 
+        # Detect history field in original signature (by type, not name)
+        self.history_field_name = _find_history_field(self.signature) or Fields.HISTORY
+
         # Convert functions to Tool instances and create tool registry
         tools_list = [t if isinstance(t, dspy.Tool) else dspy.Tool(t) for t in tools]
         tools_dict: dict[str, dspy.Tool] = {tool.name: tool for tool in tools_list}  # type: ignore[misc]
@@ -152,15 +155,15 @@ class ReActMachina(dspy.Module):
             dspy.Prediction with original signature outputs and updated history
         """
         # Pre-condition: validate history type if present
-        if Fields.HISTORY in input_args and input_args[Fields.HISTORY] is not None:
-            assert isinstance(input_args[Fields.HISTORY], dspy.History), (
-                f"History must be dspy.History, got {type(input_args[Fields.HISTORY])}"
+        if self.history_field_name in input_args and input_args[self.history_field_name] is not None:
+            assert isinstance(input_args[self.history_field_name], dspy.History), (
+                f"History must be dspy.History, got {type(input_args[self.history_field_name])}"
             )
 
         # Extract and prepare inputs (without mutating input_args)
-        history = input_args.get(Fields.HISTORY) or dspy.History(messages=[])
+        history = input_args.get(self.history_field_name) or dspy.History(messages=[])
         original_inputs = {
-            k: v for k, v in input_args.items() if k in self.signature.input_fields and k != Fields.HISTORY
+            k: v for k, v in input_args.items() if k in self.signature.input_fields and k != self.history_field_name
         }
 
         # Start the ReAct loop with user query
@@ -267,15 +270,15 @@ class ReActMachina(dspy.Module):
             dspy.Prediction with original signature outputs and updated history
         """
         # Pre-condition: validate history type if present
-        if Fields.HISTORY in input_args and input_args[Fields.HISTORY] is not None:
-            assert isinstance(input_args[Fields.HISTORY], dspy.History), (
-                f"History must be dspy.History, got {type(input_args[Fields.HISTORY])}"
+        if self.history_field_name in input_args and input_args[self.history_field_name] is not None:
+            assert isinstance(input_args[self.history_field_name], dspy.History), (
+                f"History must be dspy.History, got {type(input_args[self.history_field_name])}"
             )
 
         # Extract and prepare inputs (without mutating input_args)
-        history = input_args.get(Fields.HISTORY) or dspy.History(messages=[])
+        history = input_args.get(self.history_field_name) or dspy.History(messages=[])
         original_inputs = {
-            k: v for k, v in input_args.items() if k in self.signature.input_fields and k != Fields.HISTORY
+            k: v for k, v in input_args.items() if k in self.signature.input_fields and k != self.history_field_name
         }
 
         # Start the ReAct loop with user query
@@ -364,8 +367,15 @@ class ReActMachina(dspy.Module):
 
     @property
     def _first_input_field(self) -> str:
-        """Get the first input field name from the original signature."""
-        return next(iter(self.signature.input_fields.keys()))
+        """Get the first non-history input field name from the original signature."""
+        for name, field in self.signature.input_fields.items():
+            # Skip history fields (detected by type or name)
+            if hasattr(field, "annotation") and field.annotation == dspy.History:
+                continue
+            if name == Fields.HISTORY:
+                continue
+            return name
+        raise ValueError("Signature must have at least one non-history input field")
 
     @property
     def _has_reasoning(self) -> bool:
@@ -1031,3 +1041,26 @@ class ReActMachina(dspy.Module):
         required_fields = [Fields.TOOL_NAME, Fields.TOOL_ARGS, Fields.RESPONSE]
         missing = [str(f) for f in required_fields if not hasattr(prediction, f) or getattr(prediction, f) is None]
         return ValidationResult(is_valid=len(missing) == 0, missing_fields=missing)
+
+
+def _find_history_field(signature: type[Signature]) -> str | None:
+    """Find a history field in the signature by type or name.
+
+    Checks for:
+    1. Fields with type dspy.History (class-based signatures)
+    2. Fields named "history" (string signatures)
+
+    Args:
+        signature: The signature to search for history fields
+
+    Returns:
+        The name of the history field if found, otherwise None
+    """
+    for name, field in signature.input_fields.items():
+        # Check by type (class-based signatures)
+        if hasattr(field, "annotation") and field.annotation == dspy.History:
+            return name
+        # Check by name (string signatures where "history" is just a regular field)
+        if name == Fields.HISTORY:
+            return name
+    return None

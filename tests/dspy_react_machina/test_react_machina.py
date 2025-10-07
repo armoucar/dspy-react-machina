@@ -812,13 +812,13 @@ class TestModuleIntegration:
         existing_history = dspy.History(messages=[{"previous": "interaction"}])
 
         # Mock predictor to return finish immediately
-        # With new flow: USER_QUERY → finish → TOOL_RESULT → finish → FINISH
+        # With flow: USER_QUERY → finish → FINISH
         finish_prediction = dspy.Prediction(tool_name=SpecialTools.FINISH, tool_args={}, response="Ready to answer")
 
         final_prediction = dspy.Prediction(answer="The answer")
 
-        # Need 3 predictions: USER_QUERY state, TOOL_RESULT state, FINISH state
-        mock_predictor = MagicMock(side_effect=[finish_prediction, finish_prediction, final_prediction])
+        # Need 2 predictions: USER_QUERY state, FINISH state
+        mock_predictor = MagicMock(side_effect=[finish_prediction, final_prediction])
         for state in agent.state_predictors:
             agent.state_predictors[state] = mock_predictor
 

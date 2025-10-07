@@ -446,9 +446,16 @@ class ReActMachina(dspy.Module):
         current_state = state_machine.current_state
 
         if current_state == MachineStates.USER_QUERY:
-            # From USER_QUERY, always transition to TOOL_RESULT
-            state_machine.transition(MachineStates.TOOL_RESULT)
-            return (None, updated_history, observation)
+            # From USER_QUERY, check if we should finish or continue
+            if prediction.tool_name == SpecialTools.FINISH:
+                # Transition directly to FINISH state
+                state_machine.transition(MachineStates.FINISH)
+                final_prediction = self._process_finish(observation, updated_history, step, trajectory)
+                return (final_prediction, updated_history, None)
+            else:
+                # Normal tool execution, transition to TOOL_RESULT
+                state_machine.transition(MachineStates.TOOL_RESULT)
+                return (None, updated_history, observation)
         elif current_state == MachineStates.TOOL_RESULT:
             # From TOOL_RESULT, check if we should finish or continue
             if prediction.tool_name == SpecialTools.FINISH:
@@ -523,9 +530,16 @@ class ReActMachina(dspy.Module):
         current_state = state_machine.current_state
 
         if current_state == MachineStates.USER_QUERY:
-            # From USER_QUERY, always transition to TOOL_RESULT
-            state_machine.transition(MachineStates.TOOL_RESULT)
-            return (None, updated_history, observation)
+            # From USER_QUERY, check if we should finish or continue
+            if prediction.tool_name == SpecialTools.FINISH:
+                # Transition directly to FINISH state
+                state_machine.transition(MachineStates.FINISH)
+                final_prediction = await self._aprocess_finish(observation, updated_history, step, trajectory)
+                return (final_prediction, updated_history, None)
+            else:
+                # Normal tool execution, transition to TOOL_RESULT
+                state_machine.transition(MachineStates.TOOL_RESULT)
+                return (None, updated_history, observation)
         elif current_state == MachineStates.TOOL_RESULT:
             # From TOOL_RESULT, check if we should finish or continue
             if prediction.tool_name == SpecialTools.FINISH:

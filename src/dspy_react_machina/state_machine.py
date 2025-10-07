@@ -32,7 +32,7 @@ class MachineStates(StrEnum):
 
 # Valid state transitions define the allowed paths through the state machine
 VALID_TRANSITIONS: dict[MachineStates, set[MachineStates]] = {
-    MachineStates.USER_QUERY: {MachineStates.TOOL_RESULT},
+    MachineStates.USER_QUERY: {MachineStates.TOOL_RESULT, MachineStates.FINISH},
     MachineStates.TOOL_RESULT: {MachineStates.TOOL_RESULT, MachineStates.INTERRUPTED, MachineStates.FINISH},
     MachineStates.INTERRUPTED: set(),  # Terminal state - no transitions allowed
     MachineStates.FINISH: set(),  # Terminal state - no transitions allowed
